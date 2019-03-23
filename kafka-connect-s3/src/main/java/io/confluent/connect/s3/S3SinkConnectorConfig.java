@@ -22,6 +22,16 @@ import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.SSEAlgorithm;
+import io.confluent.connect.s3.format.avro.AvroFormat;
+import io.confluent.connect.s3.format.json.JsonFormat;
+import io.confluent.connect.s3.storage.CompressionType;
+import io.confluent.connect.s3.storage.S3Storage;
+import io.confluent.connect.storage.StorageSinkConnectorConfig;
+import io.confluent.connect.storage.common.ComposableConfig;
+import io.confluent.connect.storage.common.GenericRecommender;
+import io.confluent.connect.storage.common.ParentValueRecommender;
+import io.confluent.connect.storage.common.StorageCommonConfig;
+import io.confluent.connect.storage.partitioner.*;
 import org.apache.kafka.common.Configurable;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
@@ -33,31 +43,8 @@ import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.common.utils.Utils;
 import org.apache.kafka.connect.errors.ConnectException;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-
-import io.confluent.connect.s3.format.avro.AvroFormat;
-import io.confluent.connect.s3.format.json.JsonFormat;
-import io.confluent.connect.s3.storage.CompressionType;
-import io.confluent.connect.s3.storage.S3Storage;
-import io.confluent.connect.storage.StorageSinkConnectorConfig;
-import io.confluent.connect.storage.common.ComposableConfig;
-import io.confluent.connect.storage.common.GenericRecommender;
-import io.confluent.connect.storage.common.ParentValueRecommender;
-import io.confluent.connect.storage.common.StorageCommonConfig;
-import io.confluent.connect.storage.partitioner.DailyPartitioner;
-import io.confluent.connect.storage.partitioner.DefaultPartitioner;
-import io.confluent.connect.storage.partitioner.FieldPartitioner;
-import io.confluent.connect.storage.partitioner.HourlyPartitioner;
-import io.confluent.connect.storage.partitioner.PartitionerConfig;
-import io.confluent.connect.storage.partitioner.TimeBasedPartitioner;
 
 import static org.apache.kafka.common.config.ConfigDef.Range.atLeast;
 
@@ -121,10 +108,21 @@ public class S3SinkConnectorConfig extends StorageSinkConnectorConfig {
   public static final String S3_PROXY_PASS_CONFIG = "s3.proxy.password";
   public static final Password S3_PROXY_PASS_DEFAULT = new Password(null);
 
+<<<<<<< HEAD
   public static final String HEADERS_USE_EXPECT_CONTINUE_CONFIG =
       "s3.http.send.expect.continue";
   public static final boolean HEADERS_USE_EXPECT_CONTINUE_DEFAULT =
       ClientConfiguration.DEFAULT_USE_EXPECT_CONTINUE;
+=======
+  public static final String ORC_CODEC_CONFIG = "orc.codec";
+  public static final String ORC_CODEC_DEFAULT = "ZLIB";
+  public static final String ORC_CODEC_DISPLAY = "ORC Compression Codec";
+  public static final String ORC_CODEC_DOC = "The ORC compression codec to be used for output  "
+      + "files. Available values: NONE, ZLIB, SNAPPY, LZO and LZ4 (CodecSource is org.apache.orc"
+      + "CompressionKind)";
+  public static final String[] ORC_SUPPORTED_CODECS = new String[]{"NONE", "ZLIB", "SNAPPY",
+      "LZO", "LZ4"};
+>>>>>>> support compression config
 
   /**
    * Maximum back-off time when retrying failed requests.
@@ -431,18 +429,31 @@ public class S3SinkConnectorConfig extends StorageSinkConnectorConfig {
       );
 
       configDef.define(
-          HEADERS_USE_EXPECT_CONTINUE_CONFIG,
-          Type.BOOLEAN,
-          HEADERS_USE_EXPECT_CONTINUE_DEFAULT,
+              HEADERS_USE_EXPECT_CONTINUE_CONFIG,
+              Type.BOOLEAN,
+              HEADERS_USE_EXPECT_CONTINUE_DEFAULT,
+              Importance.LOW,
+              "Enable/disable use of the HTTP/1.1 handshake using EXPECT: 100-CONTINUE during "
+                      + "multi-part upload. If true, the client will wait for a 100 (CONTINUE) response "
+                      + "before sending the request body. Else, the client uploads the entire request "
+                      + "body without checking if the server is willing to accept the request.",
+              group,
+              ++orderInGroup,
+              Width.SHORT,
+              "S3 HTTP Send Uses Expect Continue"
+      );
+
+      configDef.define(
+          ORC_CODEC_CONFIG,
+          Type.STRING,
+          ORC_CODEC_DEFAULT,
+          ConfigDef.ValidString.in(ORC_SUPPORTED_CODECS),
           Importance.LOW,
-          "Enable/disable use of the HTTP/1.1 handshake using EXPECT: 100-CONTINUE during "
-              + "multi-part upload. If true, the client will wait for a 100 (CONTINUE) response "
-              + "before sending the request body. Else, the client uploads the entire request "
-              + "body without checking if the server is willing to accept the request.",
+          ORC_CODEC_DOC,
           group,
           ++orderInGroup,
-          Width.SHORT,
-          "S3 HTTP Send Uses Expect Continue"
+          Width.MEDIUM,
+          ORC_CODEC_DISPLAY
       );
 
     }
