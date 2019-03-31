@@ -10,11 +10,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ListColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.MapColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.StructColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -91,49 +87,14 @@ public class OrcTestUtils {
         case BOOLEAN:
           return ((LongColumnVector) col).vector[row] == 1;
         case STRING:
-          return ((BytesColumnVector) col).toString(row);
+          BytesColumnVector column = (BytesColumnVector) col;
+          byte[] bytes = column.vector[row];
+          return new String(ByteBuffer.wrap(bytes, column.start[row], column.length[row]).array());
         case BINARY:
           BytesColumnVector byteColumn = (BytesColumnVector) col;
-          byte[] bytes = byteColumn.vector[row];
-          ByteBuffer wrap = ByteBuffer.wrap(bytes, byteColumn.start[row], byteColumn.length[row]);
+          byte[] byteArray = byteColumn.vector[row];
+          ByteBuffer wrap = ByteBuffer.wrap(byteArray, byteColumn.start[row], byteColumn.length[row]);
           return wrap;
-        case TIMESTAMP:
-          return new Date(((TimestampColumnVector) col).getTime(row));
-        case LIST:
-          ListColumnVector listColumn = (ListColumnVector) col;
-          long startPoint = listColumn.offsets[row];
-          long length = listColumn.lengths[row];
-          List<String> result = new ArrayList<>((int) length);
-          ColumnVector child = listColumn.child;
-          for (long i = startPoint; i < startPoint + length; i++) {
-            StringBuilder sb = new StringBuilder();
-            child.stringifyValue(sb, (int) i);
-            result.add(sb.toString().replaceAll("\"", ""));
-          }
-          return result;
-        case MAP:
-          MapColumnVector mapColumn = (MapColumnVector) col;
-          int start = (int) mapColumn.offsets[row];
-          int size = (int) mapColumn.lengths[row];
-          Map<String, String> transformedMap = new HashMap<>();
-          ColumnVector key = mapColumn.keys;
-          ColumnVector value = mapColumn.values;
-          for (int i = start; i < start + size; i++) {
-            StringBuilder sbKey = new StringBuilder();
-            key.stringifyValue(sbKey, i);
-            StringBuilder sbValue = new StringBuilder();
-            value.stringifyValue(sbValue, i);
-            transformedMap.put(sbKey.toString().replaceAll("\"", ""), sbValue.toString().replaceAll("\"", ""));
-          }
-          return transformedMap;
-        case STRUCT:
-          List<TypeDescription> children = fieldDescription.getChildren();
-          ColumnVector[] data = ((StructColumnVector) col).fields;
-          Object[] parsedData = new Object[data.length];
-          for (int i = 0; i < children.size(); i++) {
-            parsedData[i] = parseField(data[i], children.get(i), row);
-          }
-          return parsedData;
         default:
           throw new IllegalArgumentException("Not supported type: " + fieldType);
       }
