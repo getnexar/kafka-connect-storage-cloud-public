@@ -15,14 +15,8 @@
 
 package io.confluent.connect.s3.format.orc;
 
-import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.ListColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.MapColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.StructColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.ql.exec.vector.*;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -30,6 +24,7 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.orc.TypeDescription;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -67,6 +62,7 @@ public class OrcConverterUtils {
       case BOOLEAN:
         return TypeDescription.createBoolean();
       case BYTES:
+        if (fieldSchema.name() != null && fieldSchema.name().equals("org.apache.kafka.connect.data.Decimal")) return TypeDescription.createDecimal();
         return TypeDescription.createBinary();
       case INT8:
         return TypeDescription.createByte();
@@ -127,9 +123,14 @@ public class OrcConverterUtils {
           ((LongColumnVector) column).vector[rowIndex] =
               (Long) fromConnectFieldData(connectFieldSchema, fieldData);
           break;
+        case DECIMAL:
+          BigDecimal decimalFieldData = (BigDecimal) fieldData;
+          ((DecimalColumnVector) column)
+                  .set(rowIndex, HiveDecimal.create(decimalFieldData));
+          break;
         case BYTES:
-          ((BytesColumnVector) column)
-              .setVal(rowIndex, (byte[]) fromConnectFieldData(connectFieldSchema, fieldData));
+            ((BytesColumnVector) column)
+                    .setVal(rowIndex, (byte[]) fromConnectFieldData(connectFieldSchema, fieldData));
           break;
         case DOUBLE:
           ((DoubleColumnVector) column).vector[rowIndex]
@@ -199,6 +200,7 @@ public class OrcConverterUtils {
       case STRUCT:
         return fieldValue;
       case BYTES:
+        if (connectSchema.name() != null && connectSchema.name().equals("org.apache.kafka.connect.data.Decimal")) return (BigDecimal) fieldValue;
         return ((ByteBuffer) fieldValue).array();
       case BOOLEAN:
         return ((Boolean) fieldValue) ? 1L : 0L;
