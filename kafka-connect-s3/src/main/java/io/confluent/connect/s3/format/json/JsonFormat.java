@@ -52,6 +52,7 @@ public class JsonFormat implements Format<S3SinkConnectorConfig, String> {
     throw new UnsupportedOperationException("Reading schemas from S3 is not currently supported");
   }
 
+  @Deprecated
   @Override
   public Object getHiveFactory() {
     throw new UnsupportedOperationException(
