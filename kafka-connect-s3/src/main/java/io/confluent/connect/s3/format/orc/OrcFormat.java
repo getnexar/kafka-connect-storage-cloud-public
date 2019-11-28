@@ -13,27 +13,24 @@
  * specific language governing permissions and limitations under the License.
  */
 
-package io.confluent.connect.s3.format.avro;
+package io.confluent.connect.s3.format.orc;
 
-import io.confluent.connect.avro.AvroData;
 import io.confluent.connect.s3.S3SinkConnectorConfig;
 import io.confluent.connect.s3.storage.S3Storage;
 import io.confluent.connect.storage.format.Format;
 import io.confluent.connect.storage.format.RecordWriterProvider;
 import io.confluent.connect.storage.format.SchemaFileReader;
 
-public class AvroFormat implements Format<S3SinkConnectorConfig, String> {
+public class OrcFormat implements Format<S3SinkConnectorConfig, String> {
   private final S3Storage storage;
-  private final AvroData avroData;
 
-  public AvroFormat(S3Storage storage) {
+  public OrcFormat(S3Storage storage) {
     this.storage = storage;
-    this.avroData = new AvroData(storage.conf().avroDataConfig());
   }
 
   @Override
   public RecordWriterProvider<S3SinkConnectorConfig> getRecordWriterProvider() {
-    return new AvroRecordWriterProvider(storage, avroData);
+    return new OrcRecordWriterProvider(storage);
   }
 
   @Override
@@ -47,9 +44,5 @@ public class AvroFormat implements Format<S3SinkConnectorConfig, String> {
     throw new UnsupportedOperationException(
         "Hive integration is not currently supported in S3 Connector"
     );
-  }
-
-  public AvroData getAvroData() {
-    return avroData;
   }
 }
