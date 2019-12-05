@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static java.util.Collections.emptyList;
 import static org.apache.kafka.common.utils.Time.SYSTEM;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
@@ -59,6 +61,7 @@ import static org.junit.Assert.assertTrue;
 public class DataWriterOrcTest extends TestWithMockedS3 {
 
   public static final Schema OPTIONAL_DECIMAL_SCHEMA = Decimal.builder(0).parameter("connect.decimal.precision", "20").optional().build();
+  public static final Schema DECIMAL_SCHEMA = Decimal.builder(0).parameter("connect.decimal.precision", "20").build();
   private final String VALUE_FIELD_NAME = "value";
   private static final String ZERO_PAD_FMT = "%010d";
   private final String extension = ".orc";
@@ -137,6 +140,42 @@ public class DataWriterOrcTest extends TestWithMockedS3 {
     task = new S3SinkTask(connectorConfig, context, storage, partitioner, format, SYSTEM_TIME);
 
     List<SinkRecord> sinkRecords = createAllTypeRecords(3);
+    // Perform write
+    task.put(sinkRecords);
+    task.close(context.assignment());
+    task.stop();
+
+    long[] validOffsets = {0, 3};
+    verify(sinkRecords, validOffsets);
+  }
+
+  protected List<SinkRecord> createRecordsF(int n) {
+    String key = "key";
+//    struct<
+//      foo array<
+//        struct<f:float>
+//      >
+//    >
+//    Schema fooArray = SchemaBuilder.struct().field("f", Schema.FLOAT32_SCHEMA).build();
+    Schema fooArray = SchemaBuilder.struct().field("f", Schema.FLOAT32_SCHEMA).build();
+    Schema foo = SchemaBuilder.array(fooArray).build();
+    Schema schema = SchemaBuilder.struct().field("foo", foo).build();
+    Struct record = new Struct(schema).put("foo", emptyList());
+
+    List<SinkRecord> sinkRecords = new ArrayList<>();
+    for (int i = 0; i < n; i++) {
+      sinkRecords.add(new SinkRecord(TOPIC, PARTITION, Schema.STRING_SCHEMA, key, schema, record, i));
+    }
+
+    return sinkRecords;
+  }
+
+  @Test
+  public void testF() throws Exception {
+    setUp();
+    task = new S3SinkTask(connectorConfig, context, storage, partitioner, format, SYSTEM_TIME);
+
+    List<SinkRecord> sinkRecords = createRecordsF(3);
     // Perform write
     task.put(sinkRecords);
     task.close(context.assignment());
@@ -694,45 +733,59 @@ public class DataWriterOrcTest extends TestWithMockedS3 {
   }
 
   private List<SinkRecord> createAllTypeRecords(int size) {
+    Schema internalSchema =
+            SchemaBuilder.struct()
+                    .field("in_a", Schema.STRING_SCHEMA)
+                    .optional()
+                    .build();
+    Schema externalSchema =
+            SchemaBuilder.struct()
+                    .field("a", Schema.STRING_SCHEMA)
+                    .field("complex", internalSchema)
+                    .optional()
+                    .build();
     Schema schema = SchemaBuilder.struct()
-        .field("int8", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
-        .field("int16", Schema.INT16_SCHEMA)
-        .field("int32", Schema.INT32_SCHEMA)
-        .field("int64", Schema.INT64_SCHEMA)
+//        .field("int8", SchemaBuilder.int8().defaultValue((byte) 2).doc("int8 field").build())
+//        .field("int16", Schema.INT16_SCHEMA)
+//        .field("int32", Schema.INT32_SCHEMA)
+//        .field("int64", Schema.INT64_SCHEMA)
         .field("float32", Schema.FLOAT32_SCHEMA)
-        .field("float64", Schema.FLOAT64_SCHEMA)
-        .field("boolean", Schema.BOOLEAN_SCHEMA)
-        .field("string", Schema.STRING_SCHEMA)
-        .field("bytes", Schema.BYTES_SCHEMA)
-        .field("bigDecimal", OPTIONAL_DECIMAL_SCHEMA)
-        .field("timestamp", Timestamp.SCHEMA)
-        .field("array", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
-        .field("map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.STRING_SCHEMA).optional().build())
-        .field("mapNonStringKeys",
-            SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
+//        .field("float64", Schema.FLOAT64_SCHEMA)
+//        .field("boolean", Schema.BOOLEAN_SCHEMA)
+//        .field("string", Schema.STRING_SCHEMA)
+//        .field("bytes", Schema.BYTES_SCHEMA)
+//        .field("bigDecimal_optional", OPTIONAL_DECIMAL_SCHEMA)
+//        .field("bigDecimal", DECIMAL_SCHEMA)
+//        .field("timestamp", Timestamp.SCHEMA)
+//        .field("array", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
+//        .field("map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.STRING_SCHEMA).optional().build())
+//        .field("mapNonStringKeys", SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
+//        .field("struct", externalSchema)
         .build();
+    MathContext mc = new MathContext(20);
     Struct struct = new Struct(schema)
-        .put("int8", (byte) 12)
-        .put("int16", (short) 12)
-        .put("int32", 12)
-        .put("int64", 12L)
+//        .put("int8", (byte) 12)
+//        .put("int16", (short) 12)
+//        .put("int32", 12)
+//        .put("int64", 12L)
         .put("float32", 12.2f)
-        .put("float64", 12.2)
-        .put("boolean", true)
-        .put("string", "foo")
-        .put("timestamp", new Date())
-        .put("bytes", ByteBuffer.wrap("foo".getBytes()))
-        .put("bigDecimal", BigDecimal.valueOf(Long.MAX_VALUE).add(BigDecimal.valueOf(1)));
+//        .put("float64", 12.2)
+//        .put("boolean", true)
+//        .put("string", "foo")
+//        .put("timestamp", new Date())
+//        .put("bytes", ByteBuffer.wrap("foo".getBytes()))
+//        .put("bigDecimal", new BigDecimal(Long.MAX_VALUE, mc).add(BigDecimal.valueOf(1)))
+            ;
 
     List<SinkRecord> sinkRecords = new ArrayList<>();
     for (TopicPartition tp : Collections.singleton(new TopicPartition(TOPIC, PARTITION))) {
       for (long offset = 0; offset < size; ++offset) {
-        if (offset % 2 == 0) {
-          struct.put("array", Arrays.asList("a", "b", "c"));
-          Map<String, String> strMap = new HashMap<>();
-          strMap.put("field", "1");
-          struct.put("map", strMap);
-        }
+//        if (offset % 2 == 0) {
+//          struct.put("array", Arrays.asList("a", "b", "c"));
+//          Map<String, String> strMap = new HashMap<>();
+//          strMap.put("field", "1");
+//          struct.put("map", strMap);
+//        }
         sinkRecords.add(new SinkRecord(TOPIC, tp.partition(), Schema.STRING_SCHEMA, "key", schema, struct, offset));
       }
     }
