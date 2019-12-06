@@ -19,7 +19,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
-import org.apache.kafka.connect.data.*;
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.orc.CompressionKind;
 import org.apache.orc.OrcFile;
@@ -32,7 +37,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -59,6 +63,7 @@ import static org.junit.Assert.assertTrue;
 public class DataWriterOrcTest extends TestWithMockedS3 {
 
   public static final Schema OPTIONAL_DECIMAL_SCHEMA = Decimal.builder(0).parameter("connect.decimal.precision", "20").optional().build();
+  public static final Schema DECIMAL_SCHEMA = Decimal.builder(0).parameter("connect.decimal.precision", "20").build();
   private final String VALUE_FIELD_NAME = "value";
   private static final String ZERO_PAD_FMT = "%010d";
   private final String extension = ".orc";
@@ -704,12 +709,11 @@ public class DataWriterOrcTest extends TestWithMockedS3 {
         .field("boolean", Schema.BOOLEAN_SCHEMA)
         .field("string", Schema.STRING_SCHEMA)
         .field("bytes", Schema.BYTES_SCHEMA)
-        .field("bigDecimal", OPTIONAL_DECIMAL_SCHEMA)
+        .field("bigDecimal", DECIMAL_SCHEMA)
         .field("timestamp", Timestamp.SCHEMA)
         .field("array", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
         .field("map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.STRING_SCHEMA).optional().build())
-        .field("mapNonStringKeys",
-            SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
+        .field("mapNonStringKeys", SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
         .build();
     Struct struct = new Struct(schema)
         .put("int8", (byte) 12)

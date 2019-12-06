@@ -16,7 +16,16 @@
 package io.confluent.connect.s3.format.orc;
 
 import org.apache.hadoop.hive.common.type.HiveDecimal;
-import org.apache.hadoop.hive.ql.exec.vector.*;
+import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.DecimalColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.ListColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.MapColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.StructColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
@@ -35,6 +44,10 @@ import java.util.List;
 import java.util.Map;
 
 public class OrcConverterUtils {
+
+  private static final int DEFAULT_PRECISION = 20;
+  private static final String SCALE_PARAMETER = "scale";
+  private static final String PRECISION_PARAMETER = "precision";
 
   /**
    * Create orc schema description from connect schema
@@ -62,8 +75,17 @@ public class OrcConverterUtils {
       case BOOLEAN:
         return TypeDescription.createBoolean();
       case BYTES:
-        if (fieldSchema.name() != null && fieldSchema.name().equals("org.apache.kafka.connect.data.Decimal")) return TypeDescription.createDecimal();
-        return TypeDescription.createBinary();
+        if (Decimal.LOGICAL_NAME.equals(fieldSchema.name())) {
+          int scale = Integer.parseInt(fieldSchema.parameters().get(SCALE_PARAMETER));
+          int precision = DEFAULT_PRECISION;
+          String precisionProperty = fieldSchema.parameters().get(PRECISION_PARAMETER);
+          if (precisionProperty != null) {
+            precision = Integer.parseInt(precisionProperty);
+          }
+          return TypeDescription.createDecimal().withScale(scale).withPrecision(precision);
+        } else {
+          return TypeDescription.createBinary();
+        }
       case INT8:
         return TypeDescription.createByte();
       case INT16:
@@ -200,8 +222,11 @@ public class OrcConverterUtils {
       case STRUCT:
         return fieldValue;
       case BYTES:
-        if (connectSchema.name() != null && connectSchema.name().equals("org.apache.kafka.connect.data.Decimal")) return (BigDecimal) fieldValue;
-        return ((ByteBuffer) fieldValue).array();
+        if (Decimal.LOGICAL_NAME.equals(connectSchema.name())) {
+          return fieldValue;
+        } else {
+          return ((ByteBuffer) fieldValue).array();
+        }
       case BOOLEAN:
         return ((Boolean) fieldValue) ? 1L : 0L;
       case FLOAT32:
