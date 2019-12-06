@@ -62,6 +62,7 @@ import static org.junit.Assert.assertTrue;
 
 public class DataWriterOrcTest extends TestWithMockedS3 {
 
+  public static final Schema OPTIONAL_DECIMAL_SCHEMA = Decimal.builder(0).parameter("connect.decimal.precision", "20").optional().build();
   public static final Schema DECIMAL_SCHEMA = Decimal.builder(0).parameter("connect.decimal.precision", "20").build();
   private final String VALUE_FIELD_NAME = "value";
   private static final String ZERO_PAD_FMT = "%010d";
@@ -712,8 +713,7 @@ public class DataWriterOrcTest extends TestWithMockedS3 {
         .field("timestamp", Timestamp.SCHEMA)
         .field("array", SchemaBuilder.array(Schema.STRING_SCHEMA).optional().build())
         .field("map", SchemaBuilder.map(Schema.STRING_SCHEMA, Schema.STRING_SCHEMA).optional().build())
-        .field("mapNonStringKeys",
-            SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
+        .field("mapNonStringKeys", SchemaBuilder.map(Schema.INT32_SCHEMA, Schema.INT32_SCHEMA).build())
         .build();
     Struct struct = new Struct(schema)
         .put("int8", (byte) 12)
