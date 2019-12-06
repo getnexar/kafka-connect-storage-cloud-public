@@ -165,10 +165,6 @@ public class OrcConverterUtils {
           );
           break;
         case LIST:
-          if (((Collection) fieldData).isEmpty()) {
-            setNullData(column, rowIndex);
-            break;
-          }
           ListColumnVector listColumn = (ListColumnVector) column;
           listColumn.offsets[rowIndex] = listColumn.childCount;
           listColumn.lengths[rowIndex] = ((Collection) fieldData).size();
